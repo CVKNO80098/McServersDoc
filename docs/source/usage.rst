@@ -8,14 +8,26 @@
 
 本文档示例默认后端地址为：
 
-``http://localhost:8080``
+.. code-block:: text
+
+   http://localhost:8080
 
 如果服务部署在其他服务器，请把示例中的地址替换为实际地址。
+
+第一次调用 API
+--------------
+
+推荐按照下面的顺序开始：
+
+#. 调用注册接口创建账号。
+#. 调用登录接口获取 JWT Token。
+#. 在需要登录的接口中携带 ``Authorization`` 请求头。
+#. 调用服务器、用户或好友相关接口。
 
 认证方式
 --------
 
-注册或登录成功后，服务器会返回一个 JWT Token。
+注册或登录成功后，服务器会返回 JWT Token。
 
 访问需要登录的接口时，在 HTTP 请求头加入：
 
@@ -30,14 +42,12 @@
    curl http://localhost:8080/auth/me \
      -H "Authorization: Bearer <token>"
 
-Token 失效后需要重新登录获取新的 Token。
+当前后端默认 Token 有效期为 1440 分钟（24 小时）。Token 失效后需要重新登录获取新的 Token。
 
 注册账号
 --------
 
 使用 ``POST /auth/register`` 注册账号。
-
-请求示例：
 
 .. code-block:: bash
 
@@ -51,12 +61,12 @@ Token 失效后需要重新登录获取新的 Token。
 * ``displayName``：显示名称，最多 100 个字符。
 * ``password``：密码，长度为 6～72 个字符。
 
-注册成功后会直接返回 Token 和用户信息。
+注册成功后会直接返回 Token 和用户信息，因此通常不需要再次登录。
 
 登录
 ----
 
-使用 ``POST /auth/login`` 登录。
+使用 ``POST /auth/login`` 登录：
 
 .. code-block:: bash
 
@@ -64,7 +74,7 @@ Token 失效后需要重新登录获取新的 Token。
      -H "Content-Type: application/json" \
      -d '{"username":"steve","password":"123456"}'
 
-成功后响应中包含：
+成功响应中包含：
 
 * ``token``：后续请求使用的 JWT。
 * ``user``：当前用户的公开信息。
@@ -72,7 +82,7 @@ Token 失效后需要重新登录获取新的 Token。
 获取当前用户
 ------------
 
-使用 ``GET /auth/me`` 获取当前登录用户的信息。
+使用 ``GET /auth/me`` 获取当前登录用户的信息：
 
 .. code-block:: bash
 
@@ -82,11 +92,9 @@ Token 失效后需要重新登录获取新的 Token。
 服务器列表
 ----------
 
-查看服务器列表不需要登录。
+查看服务器列表和服务器详情不需要登录。
 
-使用 ``GET /server/list/{page}`` 获取分页列表，页码从 ``0`` 开始，每页默认 10 条。
-
-例如查看第一页：
+使用 ``GET /server/list/{page}`` 获取分页列表，页码从 ``0`` 开始，每页默认 10 条：
 
 .. code-block:: console
 
@@ -98,6 +106,10 @@ Token 失效后需要重新登录获取新的 Token。
 
    curl http://localhost:8080/server/list/servers/1
 
+.. note::
+
+   当前列表接口不是“只返回在线服务器”。离线服务器也可能出现在列表中；后端会根据当前实现对服务器进行排序。
+
 添加服务器
 ----------
 
@@ -105,52 +117,57 @@ Token 失效后需要重新登录获取新的 Token。
 
 使用 ``POST /server/list/create``，请求体主要包括：
 
-* ``name``：服务器名称。
-* ``description``：服务器简介，可选。
-* ``host``：Minecraft 服务器地址。
-* ``port``：Minecraft 服务器端口。
-* ``mods``：联机方式说明，可选。
-* ``code``：第三方内网联机码，可选。
-* ``serverFlag``：在线状态检测方式标记。
+.. code-block:: json
 
-示例：
+   {
+     "name": "My Minecraft Server",
+     "description": "Minecraft Server",
+     "mods": "Java",
+     "host": "127.0.0.1",
+     "port": 25565,
+     "code": null,
+     "serverFlag": true
+   }
 
-.. code-block:: bash
-
-   curl -X POST http://localhost:8080/server/list/create \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer <token>" \
-     -d '{"name":"Hypixel","host":"mc.hypixel.net","port":25565,"serverFlag":true}'
-
-注意，服务器所有者由后端根据当前登录用户确定，客户端不应该依赖或修改 ``ownerId``。
+服务器所有者由后端根据当前登录用户确定，客户端不应该依赖或修改 ``ownerId``。
 
 在线状态
 --------
 
-项目目前支持两种在线状态判定方式。
+项目目前存在两种状态检测机制：
 
 主动探测
 ~~~~~~~~
 
-当服务器使用主动探测模式时，后端会使用 MCPing 对 Minecraft 服务器地址和端口进行探测，并根据探测结果判断服务器是否在线。
+后端定时使用 Minecraft Ping 探测启用了相应检测标记的服务器，并根据连接结果更新 ``active`` 状态。
 
-心跳模式
-~~~~~~~~
+当前定时任务的执行间隔为 10 分钟，因此数据库中的状态可能存在延迟。
 
-另一种模式由客户端 Agent 定期向：
+Agent 心跳
+~~~~~~~~~~
 
-``POST /room/agent/heartbeat``
+服务器所在环境可以运行 Agent，并向：
 
-发送心跳。Agent 上报的数据包含房间 ID、Agent 版本、Minecraft 状态、虚拟网络信息以及时间戳等字段。
+.. code-block:: text
+
+   POST /room/agent/heartbeat
+
+发送心跳。该接口当前为公开接口，不要求 JWT。
+
+Agent 可以上报房间 ID、Agent 版本、Minecraft 状态、虚拟网络信息以及时间戳等字段。当前后端收到心跳后的核心操作是根据 ``roomId`` 找到服务器并更新 ``updatedAt``。
+
+更多细节请参阅 :doc:`status`。
 
 用户搜索
 --------
 
 登录后可以使用：
 
-``GET /users?keyword=xxx``
+.. code-block:: text
 
-按照用户名或显示名进行模糊搜索。
+   GET /users?keyword=xxx
+
+按照用户名或显示名搜索用户。
 
 搜索结果不会包含当前用户本人，也不会返回被禁用的账户。
 
@@ -159,10 +176,12 @@ Token 失效后需要重新登录获取新的 Token。
 
 登录后可以使用好友相关接口：
 
-* ``GET /friends``：获取好友及好友请求列表。
+* ``GET /friends``：获取好友关系。
 * ``POST /friends/{userId}/request``：向用户发送好友请求。
 * ``POST /friends/{friendshipId}/accept``：接受好友请求。
 * ``DELETE /friends/{friendshipId}``：删除好友关系。
+
+只有好友请求的接收方可以接受待处理的请求。
 
 退出登录
 --------
@@ -174,9 +193,13 @@ Token 失效后需要重新登录获取新的 Token。
    curl -X POST http://localhost:8080/auth/logout \
      -H "Authorization: Bearer <token>"
 
-服务端会将当前 JWT 的 ID 加入注销列表，使令牌立即失效。
+服务端会将当前 JWT 的 ``jti`` 加入内存中的撤销集合，使该 Token 在当前服务进程中失效。
 
 下一步
 ------
 
 如果你需要查看完整的 HTTP 接口、请求方法和权限要求，请继续阅读 :doc:`api`。
+
+如果你正在开发服务器 Agent 或需要理解在线状态判定，请阅读 :doc:`status`。
+
+常见问题可以查看 :doc:`faq`。
