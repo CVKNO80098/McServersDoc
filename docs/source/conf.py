@@ -1,35 +1,17 @@
-# Configuration file for the Sphinx documentation builder.
+# Sphinx configuration for MC Server Web documentation.
 
-# -- Project information
-
-project = 'Lumache'
-copyright = '2021, Graziella'
-author = 'Graziella'
-
+project = 'MC Server Web'
+author = 'CVKNO80098'
 release = '0.1'
-version = '0.1.0'
+version = '0.1'
 
-# -- General configuration
-
-extensions = [
-    'sphinx.ext.duration',
-    'sphinx.ext.doctest',
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.intersphinx',
-]
-
-intersphinx_mapping = {
-    'python': ('https://docs.python.org/3/', None),
-    'sphinx': ('https://www.sphinx-doc.org/en/master/', None),
-}
-intersphinx_disabled_domains = ['std']
+extensions = []
 
 templates_path = ['_templates']
-
-# -- Options for HTML output
+exclude_patterns = []
 
 html_theme = 'sphinx_rtd_theme'
+html_title = 'MC Server Web 用户文档'
 
-# -- Options for EPUB output
+# 在文档中显示外部链接的完整地址。
 epub_show_urls = 'footnote'
